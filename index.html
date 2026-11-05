@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Iron Squad | Daily Habit Engine</title>
 
-  <!-- PWA & Mobile Web Capabilities -->
+  <!-- PWA & Mobile Viewport Constraints -->
   <meta name="theme-color" content="#07090E">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,12 +15,12 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
 
-  <!-- Typography -->
+  <!-- Typefaces -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- Dependencies -->
+  <!-- Core Script Dependencies -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
@@ -30,8 +30,8 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'monospace'],
           },
           colors: {
             bg: '#07090E',
@@ -45,36 +45,76 @@
     }
   </script>
   <style>
+    /* Cross-device Hardware Optimization */
+    :root {
+      --app-height: 100dvh;
+    }
     body {
       background-color: #07090E;
       color: #E2E8F0;
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior-y: none;
       user-select: none;
+      -webkit-user-select: none;
+      min-height: var(--app-height);
     }
     .tabular { font-variant-numeric: tabular-nums; }
-    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
-    .safe-top { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+    
+    /* Dynamic Safe Area Padding (iOS Notches & Android Gesture Bars) */
+    .safe-top {
+      padding-top: max(0.85rem, env(safe-area-inset-top));
+    }
+    .safe-bottom {
+      padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+    
+    /* Touch target ergonomics */
+    .touch-target {
+      touch-action: manipulation;
+      min-height: 48px;
+    }
+    .touch-lever {
+      touch-action: manipulation;
+      transition: transform 60ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 100ms ease;
+    }
+    .touch-lever:active {
+      transform: scale(0.965);
+    }
+
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-brand/20">
+<body class="font-sans antialiased flex flex-col justify-between selection:bg-brand/20">
 
-  <!-- Network Offline Banner -->
-  <div id="offline-bar" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-3 py-1.5 text-center">
-    <span class="text-[11px] font-mono font-bold text-amber-400">Offline mode: Changes will sync once connected</span>
+  <!-- Setup Fail-Safe Screen -->
+  <div id="setup-guard" class="hidden min-h-screen flex items-center justify-center p-6 text-center">
+    <div class="max-w-xs bg-surface border border-rose-500/30 rounded-2xl p-6 space-y-3">
+      <div class="text-rose-400 font-mono text-xs font-bold uppercase tracking-wider">Setup Required</div>
+      <p class="text-xs text-slate-300 leading-relaxed">Please configure your Supabase URL and Key in index.html (lines 218-219).</p>
+    </div>
+  </div>
+
+  <!-- Offline State Warning Banner -->
+  <div id="offline-bar" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-3 py-1.5 text-center transition-all">
+    <span class="text-[11px] font-mono font-bold text-amber-400 flex items-center justify-center gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+      OFFLINE: Syncing queued
+    </span>
   </div>
 
   <!-- ================= AUTH VIEW ================= -->
   <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-sm bg-surface border border-border rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center gap-2 mb-6">
-        <div class="w-2.5 h-2.5 rounded-full bg-brand animate-pulse"></div>
-        <span class="font-mono text-[11px] uppercase tracking-widest text-slate-400 font-bold">Iron Squad Access</span>
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-brand animate-pulse"></div>
+          <span class="font-mono text-[11px] uppercase tracking-widest text-slate-400 font-bold">Iron Squad</span>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500 border border-border px-1.5 py-0.5 rounded">v1.2.0</span>
       </div>
       <h1 class="text-xl font-bold text-white mb-1.5">Squad Sign In</h1>
-      <p class="text-xs text-slate-400 mb-6">Enter your squad email & password to sync records.</p>
+      <p class="text-xs text-slate-400 mb-6">Enter your assigned squad credentials.</p>
 
       <form id="login-form" class="space-y-4">
         <div>
@@ -85,7 +125,7 @@
           <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">Password</label>
           <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password" class="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand transition-colors">
         </div>
-        <button type="submit" id="login-btn" class="w-full bg-brand hover:bg-emerald-400 text-bg font-bold py-3.5 rounded-xl text-xs font-mono tracking-wide transition-all active:scale-[0.98]">
+        <button type="submit" id="login-btn" class="touch-lever touch-target w-full bg-brand hover:bg-emerald-400 text-bg font-bold py-3.5 rounded-xl text-xs font-mono tracking-wide transition-all shadow-lg shadow-brand/10">
           AUTHENTICATE
         </button>
       </form>
@@ -96,26 +136,36 @@
   <!-- ================= MAIN APP VIEW ================= -->
   <div id="app-screen" class="hidden flex-1 flex flex-col pb-36">
     <!-- Header -->
-    <header class="border-b border-border bg-surface/80 backdrop-blur sticky top-0 z-40 px-4 py-3 safe-top">
+    <header class="border-b border-border bg-surface/85 backdrop-blur-md sticky top-0 z-40 px-4 py-3 safe-top">
       <div class="max-w-md mx-auto flex items-center justify-between">
+        
+        <!-- Left: Brand + Status Dot + Version -->
         <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+          <div id="network-dot" class="w-2 h-2 rounded-full bg-emerald-500" title="Connected"></div>
           <span class="font-mono text-xs font-bold tracking-wider text-slate-200">IRON SQUAD</span>
+          <span class="text-[9px] font-mono text-slate-400 bg-panel border border-border px-1.5 py-0.2 rounded">v1.2.0</span>
         </div>
-        <div class="flex items-center gap-3">
-          <span id="user-display-name" class="text-xs font-semibold text-slate-300 font-mono">...</span>
-          <button id="logout-btn" class="text-xs font-mono text-slate-500 hover:text-slate-300 transition-colors">Sign Out</button>
+
+        <!-- Right: Actions & User -->
+        <div class="flex items-center gap-2.5">
+          <button id="update-btn" onclick="forceAppUpdate()" class="touch-lever text-[10px] font-mono text-slate-400 hover:text-brand bg-panel border border-border px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Sync
+          </button>
+          <span id="user-display-name" class="text-xs font-semibold text-slate-300 font-mono truncate max-w-[90px]">...</span>
+          <button id="logout-btn" class="text-xs font-mono text-slate-500 hover:text-slate-300 transition-colors">Exit</button>
         </div>
+
       </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="max-w-md mx-auto w-full px-4 pt-4 space-y-5">
+    <!-- Main Chassis Container -->
+    <main class="max-w-md mx-auto w-full px-4 pt-4 space-y-4">
       
       <!-- Horizon Date Rail -->
       <section>
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Horizon (Cutoff 12:00 AM IST)</span>
+          <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Rolling Horizon (12:00 AM IST)</span>
           <span id="active-day-indicator" class="text-[10px] font-mono text-brand font-bold">TODAY</span>
         </div>
         <div id="horizon-rail" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -128,21 +178,22 @@
         <div class="flex items-center justify-between mb-3 border-b border-border/40 pb-2.5">
           <div class="flex items-center gap-2">
             <span id="status-card-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-400">TODAY</span>
-            <span id="status-card-date" class="font-mono text-xs text-slate-300">...</span>
+            <span id="status-card-date" class="font-mono text-xs text-slate-300 font-semibold">...</span>
           </div>
-          <div id="squad-readiness-count" class="text-[10px] font-mono text-slate-400 tabular">0 / 0 Ready</div>
+          <!-- Context-Aware Dynamic Truth Metric -->
+          <div id="squad-readiness-count" class="text-[10px] font-mono text-brand font-bold tabular">0 / 0 Attended</div>
         </div>
 
-        <!-- Squad Grid -->
-        <div id="squad-roster" class="grid grid-cols-2 gap-2">
+        <!-- Balanced Roster -->
+        <div id="squad-roster" class="space-y-1.5">
           <!-- Dynamically Injected Member Cards -->
         </div>
       </section>
 
-      <!-- Leaderboard -->
+      <!-- Gamified Leaderboard with Mathematical Joint Ties -->
       <section class="bg-surface border border-border rounded-2xl p-4 shadow-sm">
         <div class="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
-          <span class="font-mono text-xs uppercase tracking-wider text-slate-400 font-bold">Standings</span>
+          <span class="font-mono text-xs uppercase tracking-wider text-slate-400 font-bold">Squad Standings</span>
           <div class="flex gap-2 text-[10px] font-mono">
             <button id="tab-weekly" class="text-brand font-bold">WEEKLY</button>
             <span class="text-slate-700">|</span>
@@ -154,10 +205,21 @@
         </div>
       </section>
 
+      <!-- 7-Day Group Audit Ledger -->
+      <section class="bg-surface border border-border rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="font-mono text-[11px] uppercase tracking-wider text-slate-400 font-bold">7-Day Squad Ledger</span>
+          <span class="text-[9px] font-mono text-slate-500">Green: Attended | Gray: Rest</span>
+        </div>
+        <div id="matrix-ledger" class="space-y-1.5 overflow-x-auto no-scrollbar">
+          <!-- Dynamically Injected Audit Matrix -->
+        </div>
+      </section>
+
     </main>
 
-    <!-- Fixed Bottom Thumb Zone Dock -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-md border-t border-border px-4 pt-3 safe-bottom">
+    <!-- Fixed Bottom Thumb Zone Dock (Engineered 48px Touch Targets) -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-md border-t border-border px-4 pt-2.5 safe-bottom">
       <div class="max-w-md mx-auto" id="dock-actions">
         <!-- Injected Action Levers -->
       </div>
@@ -168,33 +230,98 @@
   <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-xl text-xs font-mono font-bold border transition-all duration-300 shadow-2xl"></div>
 
   <script>
-    // ================= 1. CONFIGURATION =================
+    // ================= 1. CONFIGURATION & HARDWARE ENGINES =================
     const SUPABASE_URL = "https://gqivqqmqngqkzpbwfvgq.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable__kDWn1PjC2N--OmlxgDItQ_nBWbZci3";
 
+    // Setup Guard
+    if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('setup-guard').classList.remove('hidden');
+      throw new Error("Supabase URL and Key must be set in index.html");
+    }
+
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storageKey: 'iron_squad_auth'
-      }
+      auth: { persistSession: true, autoRefreshToken: true, storageKey: 'iron_squad_auth' }
     });
 
+    // Zero-Asset Mechanical Acoustic Engine (Web Audio API)
+    // Works cross-platform on iOS, Android, and Desktop
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      click(isHeavy = false) {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const now = this.ctx.currentTime;
+          osc.type = 'triangle';
+          
+          if (isHeavy) {
+            osc.frequency.setValueAtTime(1100, now);
+            osc.frequency.exponentialRampToValueAtTime(140, now + 0.04);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.04);
+          } else {
+            osc.frequency.setValueAtTime(750, now);
+            osc.frequency.exponentialRampToValueAtTime(240, now + 0.015);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.015);
+          }
+        } catch (e) {}
+      }
+    };
+
+    // Unlock Web Audio on iOS Safari on first user interaction anywhere
+    window.addEventListener('pointerdown', () => AudioEngine.init(), { once: true });
+
+    // Multi-Tier Haptic Dispatcher (Android hardware motor + acoustic feedback)
+    function triggerHaptic(type = 'light') {
+      AudioEngine.click(type === 'heavy' || type === 'success');
+      if (!navigator.vibrate) return;
+      if (type === 'light') navigator.vibrate(8);
+      else if (type === 'medium') navigator.vibrate(22);
+      else if (type === 'success') navigator.vibrate([15, 45, 25]);
+      else if (type === 'error') navigator.vibrate([40, 50, 40]);
+    }
+
     // ================= 2. TIMEZONE & CHRONOLOGY HELPERS =================
-    // Always calculate Indian Standard Time (IST) explicitly to prevent UTC drift between 12:00 AM & 5:30 AM
     function getNowIST() {
       const now = new Date();
-      const istString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-      return new Date(istString);
+      return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     }
 
     function getISTDateString(offsetDays = 0) {
       const d = getNowIST();
       d.setDate(d.getDate() + offsetDays);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return `${y}-${m}-${day}`;
+    }
+
+    function formatHumanDate(isoString) {
+      const parts = isoString.split('-');
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
     }
 
     // App State
@@ -212,12 +339,36 @@
       }`;
       toast.classList.remove('hidden');
       setTimeout(() => toast.classList.add('hidden'), 3200);
-      if (navigator.vibrate) navigator.vibrate(isError ? [30, 30] : [12]);
+      triggerHaptic(isError ? 'error' : 'success');
     }
 
-    // ================= 3. AUTHENTICATION & SESSION RESTORE =================
+    // Force Synchronize
+    async function forceAppUpdate() {
+      triggerHaptic('medium');
+      const btn = document.getElementById('update-btn');
+      btn.innerText = 'Syncing...';
+      btn.disabled = true;
+
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (let r of regs) await r.update();
+        }
+        await fetchAllData();
+        renderApp();
+        showToast('Squad records up to date!');
+      } catch (err) {
+        window.location.reload();
+      } finally {
+        btn.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Sync`;
+        btn.disabled = false;
+      }
+    }
+
+    // ================= 3. AUTHENTICATION =================
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      triggerHaptic('medium');
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value.trim();
       const btn = document.getElementById('login-btn');
@@ -234,6 +385,7 @@
         errorDiv.classList.remove('hidden');
         btn.disabled = false;
         btn.innerText = 'AUTHENTICATE';
+        triggerHaptic('error');
       } else {
         currentUser = data.user;
         initApp();
@@ -241,6 +393,7 @@
     });
 
     document.getElementById('logout-btn').addEventListener('click', async () => {
+      triggerHaptic('light');
       await supabaseClient.auth.signOut();
       window.location.reload();
     });
@@ -269,7 +422,6 @@
       renderHorizonRail();
       renderApp();
 
-      // Realtime synchronization across all devices
       supabaseClient.channel('squad-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_logs' }, () => {
           fetchAllData().then(renderApp);
@@ -282,7 +434,7 @@
         supabaseClient.from('leaderboard_view').select('*'),
         supabaseClient.from('daily_logs')
           .select('*')
-          .gte('target_date', getISTDateString(-3))
+          .gte('target_date', getISTDateString(-6))
           .lte('target_date', getISTDateString(5))
       ]);
 
@@ -307,7 +459,7 @@
 
         const isSelected = selectedDate === iso;
         const btn = document.createElement('button');
-        btn.className = `flex-shrink-0 px-3.5 py-2 rounded-xl font-mono border text-left transition-all ${
+        btn.className = `touch-lever flex-shrink-0 px-3.5 py-2 rounded-xl font-mono border text-left transition-all ${
           isSelected 
             ? 'bg-panel border-brand text-brand shadow-sm' 
             : 'bg-surface border-border text-slate-400 hover:border-slate-700'
@@ -317,6 +469,7 @@
           <div class="text-xs font-semibold text-white tabular">${dateNum}</div>
         `;
         btn.onclick = () => {
+          triggerHaptic('light');
           selectedDate = iso;
           document.getElementById('active-day-indicator').innerText = isToday ? 'TODAY' : isTmrw ? 'TOMORROW' : `DAY +${i}`;
           renderHorizonRail();
@@ -332,13 +485,21 @@
       const isFuture = selectedDate > todayISO;
 
       document.getElementById('status-card-badge').innerText = isToday ? 'TODAY' : isFuture ? 'UPCOMING' : 'PAST';
-      document.getElementById('status-card-date').innerText = selectedDate;
+      document.getElementById('status-card-date').innerText = formatHumanDate(selectedDate);
 
       const dayLogs = logs.filter(l => l.target_date === selectedDate);
-      const readyCount = dayLogs.filter(l => l.committed === true).length;
-      document.getElementById('squad-readiness-count').innerText = `${readyCount} / ${members.length} Ready`;
+      
+      // Dynamic Metric Presentation
+      const countLabel = document.getElementById('squad-readiness-count');
+      if (isToday) {
+        const attendedCount = dayLogs.filter(l => l.attended === true).length;
+        countLabel.innerText = `${attendedCount} / ${members.length} Attended`;
+      } else {
+        const readyCount = dayLogs.filter(l => l.committed === true).length;
+        countLabel.innerText = `${readyCount} / ${members.length} Locked In`;
+      }
 
-      // Render Squad Roster
+      // Render Squad Roster (Adaptive Full-Width Cards)
       const rosterDiv = document.getElementById('squad-roster');
       rosterDiv.innerHTML = '';
 
@@ -354,15 +515,15 @@
 
         if (isToday) {
           if (isAttended) {
-            statusText = `+${log.xp_awarded} XP`;
+            statusText = `+${log.xp_awarded} XP Crushed`;
             statusBadge = 'bg-emerald-950/40 text-brand border-brand/30';
             indicatorColor = 'bg-brand';
           } else if (isMissed) {
-            statusText = `${log.xp_awarded} XP`;
+            statusText = `${log.xp_awarded} XP Missed`;
             statusBadge = 'bg-rose-950/40 text-rose-400 border-rose-500/30';
             indicatorColor = 'bg-rose-500';
           } else if (isCommitted) {
-            statusText = 'Ready';
+            statusText = 'Ready (Pending)';
             statusBadge = 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30';
             indicatorColor = 'bg-emerald-400 animate-pulse';
           }
@@ -377,29 +538,36 @@
         const isMe = m.user_id === currentUser.id;
         rosterDiv.innerHTML += `
           <div class="p-2.5 rounded-xl border bg-panel/40 ${isMe ? 'border-slate-600' : 'border-border'} flex items-center justify-between">
-            <div class="flex items-center gap-2 overflow-hidden">
+            <div class="flex items-center gap-2.5 overflow-hidden">
               <div class="w-2 h-2 rounded-full flex-shrink-0 ${indicatorColor}"></div>
-              <span class="text-xs font-semibold ${isMe ? 'text-white' : 'text-slate-300'} font-mono truncate">${m.display_name}</span>
+              <span class="text-xs font-semibold ${isMe ? 'text-white' : 'text-slate-300'} font-mono truncate">${m.display_name} ${isMe ? '(You)' : ''}</span>
             </div>
-            <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${statusBadge}">${statusText}</span>
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${statusBadge}">${statusText}</span>
           </div>
         `;
       });
 
-      // Render Leaderboard
+      // Render Leaderboard with Joint Ties Calculation
       const lbDiv = document.getElementById('leaderboard-list');
       lbDiv.innerHTML = '';
       const sorted = [...members].sort((a, b) => 
         leaderboardView === 'weekly' ? b.weekly_xp - a.weekly_xp : b.total_xp - a.total_xp
       );
 
+      let currentRank = 1;
       sorted.forEach((m, idx) => {
         const xp = leaderboardView === 'weekly' ? m.weekly_xp : m.total_xp;
-        const rankColor = idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-600' : 'text-slate-600';
+        
+        if (idx > 0) {
+          const prevXp = leaderboardView === 'weekly' ? sorted[idx - 1].weekly_xp : sorted[idx - 1].total_xp;
+          if (xp < prevXp) currentRank = idx + 1;
+        }
+
+        const rankColor = currentRank === 1 ? 'text-amber-400' : currentRank === 2 ? 'text-slate-300' : currentRank === 3 ? 'text-amber-600' : 'text-slate-600';
         lbDiv.innerHTML += `
-          <div class="flex items-center justify-between py-2 px-2.5 rounded-xl hover:bg-panel/40 transition-colors">
+          <div class="flex items-center justify-between py-1.5 px-2.5 rounded-xl hover:bg-panel/40 transition-colors">
             <div class="flex items-center gap-2.5">
-              <span class="font-mono text-xs font-bold ${rankColor} w-4 text-center">${idx + 1}</span>
+              <span class="font-mono text-xs font-bold ${rankColor} w-4 text-center">${currentRank}</span>
               <span class="text-xs font-medium text-slate-200">${m.display_name}</span>
             </div>
             <div class="flex items-center gap-3">
@@ -410,7 +578,48 @@
         `;
       });
 
+      // 7-Day Group Audit Matrix
+      renderAuditMatrix();
+
       renderDockAction();
+    }
+
+    function renderAuditMatrix() {
+      const container = document.getElementById('matrix-ledger');
+      container.innerHTML = '';
+      
+      const past7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        past7Days.push(getISTDateString(-i));
+      }
+
+      let headerHtml = `
+        <div class="flex items-center justify-between py-1 text-[9px] font-mono text-slate-500 border-b border-border/30 pb-1">
+          <span class="w-20 truncate">MEMBER</span>
+          <div class="flex gap-2">
+            ${past7Days.map(d => `<span class="w-4 text-center">${formatHumanDate(d).split(' ')[0][0]}</span>`).join('')}
+          </div>
+        </div>
+      `;
+
+      const rowsHtml = members.map(m => {
+        const dots = past7Days.map(d => {
+          const l = logs.find(log => log.user_id === m.user_id && log.target_date === d);
+          if (!l) return `<span class="w-4 text-center text-slate-700">·</span>`;
+          if (l.attended === true) return `<span class="w-4 text-center text-brand font-bold">●</span>`;
+          if (l.attended === false && l.committed === true) return `<span class="w-4 text-center text-rose-500 font-bold">×</span>`;
+          return `<span class="w-4 text-center text-slate-600">○</span>`;
+        }).join('');
+
+        return `
+          <div class="flex items-center justify-between py-1 text-xs font-mono">
+            <span class="w-20 truncate text-slate-300">${m.display_name}</span>
+            <div class="flex gap-2">${dots}</div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = headerHtml + rowsHtml;
     }
 
     function renderDockAction() {
@@ -423,22 +632,22 @@
       if (isToday) {
         if (myLog?.attended !== null && myLog?.attended !== undefined) {
           dock.innerHTML = `
-            <div class="w-full flex items-center justify-between p-3 bg-panel border border-border rounded-xl">
-              <div class="font-mono text-xs text-slate-400">
-                Logged: <span class="text-brand font-bold">${myLog.xp_awarded > 0 ? '+' : ''}${myLog.xp_awarded} XP</span>
+            <div class="w-full flex items-center justify-between p-2.5 bg-panel border border-border rounded-xl">
+              <div class="font-mono text-xs text-slate-300">
+                Today: <span class="text-brand font-bold">${myLog.xp_awarded > 0 ? '+' : ''}${myLog.xp_awarded} XP Logged</span>
               </div>
-              <button onclick="handleAttendance(${!myLog.attended})" class="text-[11px] font-mono text-slate-500 hover:text-slate-300 underline underline-offset-4">
-                Change to ${myLog.attended ? 'Rest Day' : 'Crushed It'}
+              <button onclick="handleAttendance(${!myLog.attended})" class="touch-lever touch-target text-[11px] font-mono font-bold bg-surface hover:bg-slate-800 text-slate-300 border border-border px-3.5 py-2 rounded-lg transition-all flex items-center justify-center">
+                Switch to ${myLog.attended ? 'Rest Day (0)' : 'Crushed It'}
               </button>
             </div>
           `;
         } else {
           dock.innerHTML = `
             <div class="grid grid-cols-2 gap-2.5">
-              <button onclick="handleAttendance(true)" class="w-full py-3.5 bg-brand hover:bg-emerald-400 text-bg font-bold rounded-xl text-xs font-mono transition-all active:scale-[0.98] shadow-lg shadow-brand/10">
+              <button onclick="handleAttendance(true)" class="touch-lever touch-target w-full bg-brand hover:bg-emerald-400 text-bg font-bold rounded-xl text-xs font-mono transition-all shadow-lg shadow-brand/10 flex items-center justify-center">
                 CRUSHED IT (+20)
               </button>
-              <button onclick="handleAttendance(false)" class="w-full py-3.5 bg-panel hover:bg-slate-800 text-slate-300 border border-border font-bold rounded-xl text-xs font-mono transition-all active:scale-[0.98]">
+              <button onclick="handleAttendance(false)" class="touch-lever touch-target w-full bg-panel hover:bg-slate-800 text-slate-300 border border-border font-bold rounded-xl text-xs font-mono transition-all flex items-center justify-center">
                 REST DAY (0)
               </button>
             </div>
@@ -447,7 +656,7 @@
       } else if (isFuture) {
         const isCommitted = myLog?.committed === true;
         dock.innerHTML = `
-          <button onclick="handleToggleRsvp('${selectedDate}', ${!isCommitted})" class="w-full py-3.5 rounded-xl text-xs font-mono font-bold transition-all active:scale-[0.98] border ${
+          <button onclick="handleToggleRsvp('${selectedDate}', ${!isCommitted})" class="touch-lever touch-target w-full rounded-xl text-xs font-mono font-bold transition-all border flex items-center justify-center ${
             isCommitted 
               ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20' 
               : 'bg-brand text-bg hover:bg-emerald-400'
@@ -458,14 +667,15 @@
       } else {
         dock.innerHTML = `
           <div class="w-full py-3 text-center font-mono text-xs text-slate-600 bg-surface/50 border border-border/40 rounded-xl">
-            Past Record (Locked)
+            Historical Record (Locked)
           </div>
         `;
       }
     }
 
-    // ================= 6. MUTATION LEVERS =================
+    // ================= 6. ACTIONS =================
     async function handleToggleRsvp(targetDate, state) {
+      triggerHaptic('medium');
       const { data, error } = await supabaseClient.rpc('rpc_toggle_rsvp', {
         p_target_date: targetDate,
         p_committed: state
@@ -481,6 +691,7 @@
     }
 
     async function handleAttendance(didAttend) {
+      triggerHaptic(didAttend ? 'success' : 'medium');
       const { data, error } = await supabaseClient.rpc('rpc_submit_attendance', {
         p_did_attend: didAttend
       });
@@ -496,31 +707,48 @@
 
     // Leaderboard Tabs
     document.getElementById('tab-weekly').onclick = () => {
+      triggerHaptic('light');
       leaderboardView = 'weekly';
       document.getElementById('tab-weekly').className = 'text-brand font-bold';
       document.getElementById('tab-alltime').className = 'text-slate-500 hover:text-slate-300';
       renderApp();
     };
     document.getElementById('tab-alltime').onclick = () => {
+      triggerHaptic('light');
       leaderboardView = 'alltime';
       document.getElementById('tab-alltime').className = 'text-brand font-bold';
       document.getElementById('tab-weekly').className = 'text-slate-500 hover:text-slate-300';
       renderApp();
     };
 
-    // Offline Listeners
-    window.addEventListener('offline', () => document.getElementById('offline-bar').classList.remove('hidden'));
+    // Live Network State Handlers
+    function updateNetworkStatus() {
+      const dot = document.getElementById('network-dot');
+      const bar = document.getElementById('offline-bar');
+      if (navigator.onLine) {
+        dot.className = "w-2 h-2 rounded-full bg-emerald-500";
+        dot.title = "Connected";
+        bar.classList.add('hidden');
+      } else {
+        dot.className = "w-2 h-2 rounded-full bg-amber-500 animate-ping";
+        dot.title = "Offline";
+        bar.classList.remove('hidden');
+      }
+    }
+
+    window.addEventListener('offline', updateNetworkStatus);
     window.addEventListener('online', () => {
-      document.getElementById('offline-bar').classList.add('hidden');
+      updateNetworkStatus();
       fetchAllData().then(renderApp);
     });
 
-    // PWA Service Worker Registration
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration skipped:', err));
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
       });
     }
+
+    updateNetworkStatus();
   </script>
 </body>
 </html>

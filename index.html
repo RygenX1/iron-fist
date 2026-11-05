@@ -136,11 +136,11 @@
 
   <script>
     // ================= CONFIGURATION =================
-    // Paste your exact values from Step 1.4 inside the quotes below:
     const SUPABASE_URL = "https://gqivqqmqngqkzpbwfvgq.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable__kDWn1PjC2N--OmlxgDItQ_nBWbZci3";
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Renamed variable to avoid Firefox global name collision
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // App State
     let currentUser = null;
@@ -180,7 +180,7 @@
       btn.innerText = 'Authenticating...';
       errorDiv.classList.add('hidden');
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
       if (error) {
         errorDiv.innerText = error.message;
@@ -194,16 +194,20 @@
     });
 
     document.getElementById('logout-btn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
       window.location.reload();
     });
 
     // Check existing session
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        currentUser = session.user;
-        initApp();
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+          currentUser = session.user;
+          initApp();
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
       }
     }
 
@@ -212,7 +216,7 @@
       document.getElementById('auth-screen').classList.add('hidden');
       document.getElementById('app-screen').classList.remove('hidden');
       
-      const { data: profile } = await supabase
+      const { data: profile } = await supabaseClient
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
@@ -225,7 +229,7 @@
       renderApp();
 
       // Listen for real-time squad updates
-      supabase.channel('squad-sync')
+      supabaseClient.channel('squad-sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_logs' }, () => {
           fetchAllData().then(renderApp);
         })
@@ -234,14 +238,14 @@
 
     async function fetchAllData() {
       // 1. Fetch Leaderboard
-      const { data: lb } = await supabase.from('leaderboard_view').select('*');
+      const { data: lb } = await supabaseClient.from('leaderboard_view').select('*');
       if (lb) members = lb;
 
       // 2. Fetch rolling logs (past 3 days to next 5 days)
       const startDate = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
       const endDate = new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0];
 
-      const { data: lg } = await supabase
+      const { data: lg } = await supabaseClient
         .from('daily_logs')
         .select('*')
         .gte('target_date', startDate)
@@ -413,7 +417,7 @@
 
     // ================= ACTIONS =================
     async function handleToggleRsvp(targetDate, state) {
-      const { data, error } = await supabase.rpc('rpc_toggle_rsvp', {
+      const { data, error } = await supabaseClient.rpc('rpc_toggle_rsvp', {
         p_target_date: targetDate,
         p_committed: state
       });
@@ -428,7 +432,7 @@
     }
 
     async function handleAttendance(didAttend) {
-      const { data, error } = await supabase.rpc('rpc_submit_attendance', {
+      const { data, error } = await supabaseClient.rpc('rpc_submit_attendance', {
         p_did_attend: didAttend
       });
 

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Iron Squad | Precision Habit Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            bg: '#07090E',
+            surface: '#0D111A',
+            panel: '#131824',
+            border: '#1E2638',
+            brand: '#10B981',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #07090E; color: #E2E8F0; -webkit-tap-highlight-color: transparent; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .safe-bottom { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+  </style>
+</head>
+<body class="font-sans antialiased selection:bg-brand/20 min-h-screen flex flex-col justify-between">
+
+  <!-- ================= AUTH VIEW ================= -->
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-surface border border-border rounded-2xl p-6 shadow-2xl">
+      <div class="flex items-center gap-2 mb-6">
+        <div class="w-2.5 h-2.5 rounded-full bg-brand animate-pulse"></div>
+        <span class="font-mono text-xs uppercase tracking-widest text-slate-400 font-bold">Iron Squad Auth</span>
+      </div>
+      <h1 class="text-xl font-bold text-white mb-2">Squad Sign In</h1>
+      <p class="text-xs text-slate-400 mb-6">Enter your assigned squad credentials.</p>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Squad Email</label>
+          <input type="email" id="login-email" required placeholder="name@squad.com" class="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand">
+        </div>
+        <div>
+          <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Squad Password</label>
+          <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand">
+        </div>
+        <button type="submit" id="login-btn" class="w-full bg-brand hover:bg-emerald-400 text-bg font-bold py-3.5 rounded-xl text-sm transition-all active:scale-[0.98]">
+          Authenticate
+        </button>
+      </form>
+      <div id="auth-error" class="hidden mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN APP VIEW ================= -->
+  <div id="app-screen" class="hidden flex-1 flex flex-col pb-32">
+    <!-- Header -->
+    <header class="border-b border-border bg-surface/80 backdrop-blur sticky top-0 z-40 px-4 py-3">
+      <div class="max-w-xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+          <span class="font-mono text-xs font-bold tracking-wider text-slate-300">IRON SQUAD</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="user-display-name" class="text-xs font-semibold text-slate-300 font-mono">...</span>
+          <button id="logout-btn" class="text-xs font-mono text-slate-500 hover:text-slate-300 transition-colors">Sign Out</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-xl mx-auto w-full px-4 pt-4 space-y-6">
+      
+      <!-- Horizon Date Rail -->
+      <section>
+        <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2">Rolling Horizon (Cutoff 12:00 AM)</div>
+        <div id="horizon-rail" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <!-- Dynamically Injected Date Chips -->
+        </div>
+      </section>
+
+      <!-- Selected Day Status Card -->
+      <section class="bg-surface border border-border rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span id="status-card-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-400">TODAY</span>
+            <span id="status-card-date" class="font-mono text-xs text-slate-400">...</span>
+          </div>
+          <div id="squad-readiness-count" class="text-[10px] font-mono text-slate-400">0 / 0 Ready</div>
+        </div>
+
+        <!-- Squad Avatars Signal Grid -->
+        <div id="squad-roster" class="grid grid-cols-2 gap-2 mb-2">
+          <!-- Dynamically Injected Member Cards -->
+        </div>
+      </section>
+
+      <!-- Gamified Leaderboard -->
+      <section class="bg-surface border border-border rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3 border-b border-border/50 pb-2">
+          <span class="font-mono text-xs uppercase tracking-wider text-slate-400 font-bold">Standings</span>
+          <div class="flex gap-2 text-[10px] font-mono">
+            <button id="tab-weekly" class="text-brand font-bold">WEEKLY</button>
+            <span class="text-slate-700">|</span>
+            <button id="tab-alltime" class="text-slate-500 hover:text-slate-300">ALL-TIME</button>
+          </div>
+        </div>
+        <div id="leaderboard-list" class="space-y-1">
+          <!-- Dynamically Injected Leaderboard Rows -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Fixed Bottom Thumb Zone Dock -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-md border-t border-border px-4 pt-3 safe-bottom">
+      <div class="max-w-xl mx-auto" id="dock-actions">
+        <!-- Dynamically swaps based on whether viewing Today vs Future Days -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all duration-300 shadow-xl"></div>
+
+  <script>
+    // ================= CONFIGURATION =================
+    // Paste your exact values from Step 1.4 inside the quotes below:
+    const SUPABASE_URL = "https://gqivqqmqngqkzpbwfvgq.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable__kDWn1PjC2N--OmlxgDItQ_nBWbZci3";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // App State
+    let currentUser = null;
+    let members = [];
+    let logs = [];
+    let selectedDate = new Date().toISOString().split('T')[0];
+    let leaderboardView = 'weekly';
+
+    // Format Helpers
+    const getTodayISO = () => new Date().toISOString().split('T')[0];
+    const getTomorrowISO = () => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    };
+
+    function showToast(text, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.innerText = text;
+      toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-xs font-mono font-bold border shadow-xl transition-all duration-200 ${
+        isError ? 'bg-rose-950/90 border-rose-500 text-rose-300' : 'bg-emerald-950/90 border-emerald-500 text-emerald-300'
+      }`;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+      if (navigator.vibrate) navigator.vibrate(isError ? [40, 40] : [15]);
+    }
+
+    // ================= AUTHENTICATION =================
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+      const btn = document.getElementById('login-btn');
+      const errorDiv = document.getElementById('auth-error');
+
+      btn.disabled = true;
+      btn.innerText = 'Authenticating...';
+      errorDiv.classList.add('hidden');
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        errorDiv.innerText = error.message;
+        errorDiv.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerText = 'Authenticate';
+      } else {
+        currentUser = data.user;
+        initApp();
+      }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.reload();
+    });
+
+    // Check existing session
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        initApp();
+      }
+    }
+
+    // ================= DATA FETCHING =================
+    async function initApp() {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('app-screen').classList.remove('hidden');
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+      
+      document.getElementById('user-display-name').innerText = profile ? profile.display_name : currentUser.email.split('@')[0];
+
+      await fetchAllData();
+      renderHorizonRail();
+      renderApp();
+
+      // Listen for real-time squad updates
+      supabase.channel('squad-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_logs' }, () => {
+          fetchAllData().then(renderApp);
+        })
+        .subscribe();
+    }
+
+    async function fetchAllData() {
+      // 1. Fetch Leaderboard
+      const { data: lb } = await supabase.from('leaderboard_view').select('*');
+      if (lb) members = lb;
+
+      // 2. Fetch rolling logs (past 3 days to next 5 days)
+      const startDate = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
+      const endDate = new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0];
+
+      const { data: lg } = await supabase
+        .from('daily_logs')
+        .select('*')
+        .gte('target_date', startDate)
+        .lte('target_date', endDate);
+
+      if (lg) logs = lg;
+    }
+
+    // ================= RENDER LOGIC =================
+    function renderHorizonRail() {
+      const rail = document.getElementById('horizon-rail');
+      rail.innerHTML = '';
+      const today = new Date();
+
+      for (let i = 0; i < 5; i++) {
+        const d = new Date();
+        d.setDate(today.getDate() + i);
+        const iso = d.toISOString().split('T')[0];
+        const isToday = i === 0;
+        const isTmrw = i === 1;
+
+        const label = isToday ? 'Today' : isTmrw ? 'Tmrw' : `+${i}d`;
+        const dateNum = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+        const btn = document.createElement('button');
+        btn.className = `flex-shrink-0 px-3.5 py-2 rounded-xl font-mono border text-left transition-all ${
+          selectedDate === iso 
+            ? 'bg-panel border-brand text-brand shadow-sm' 
+            : 'bg-surface border-border text-slate-400 hover:border-slate-700'
+        }`;
+        btn.innerHTML = `<div class="text-[10px] uppercase font-bold tracking-wider">${label}</div><div class="text-xs font-semibold text-white">${dateNum}</div>`;
+        btn.onclick = () => {
+          selectedDate = iso;
+          renderHorizonRail();
+          renderApp();
+        };
+        rail.appendChild(btn);
+      }
+    }
+
+    function renderApp() {
+      const isToday = selectedDate === getTodayISO();
+      const isFuture = selectedDate > getTodayISO();
+
+      // Update Card Header
+      document.getElementById('status-card-badge').innerText = isToday ? 'TODAY' : isFuture ? 'UPCOMING' : 'PAST';
+      document.getElementById('status-card-date').innerText = selectedDate;
+
+      // Filter logs for selected day
+      const dayLogs = logs.filter(l => l.target_date === selectedDate);
+      const readyCount = dayLogs.filter(l => l.committed === true).length;
+      document.getElementById('squad-readiness-count').innerText = `${readyCount} / ${members.length} Ready`;
+
+      // Render Squad Roster for this Day
+      const rosterDiv = document.getElementById('squad-roster');
+      rosterDiv.innerHTML = '';
+
+      members.forEach(m => {
+        const log = dayLogs.find(l => l.user_id === m.user_id);
+        const isCommitted = log?.committed === true;
+        const isAttended = log?.attended === true;
+        const isMissed = log?.attended === false && log?.reconciled === true;
+
+        let statusText = 'Opted Out';
+        let statusColor = 'text-slate-500 border-border bg-panel/40';
+
+        if (isToday) {
+          if (isAttended) {
+            statusText = `Crushed (+${log.xp_awarded} XP)`;
+            statusColor = 'text-brand border-brand/30 bg-emerald-950/20';
+          } else if (isMissed) {
+            statusText = `Missed (${log.xp_awarded} XP)`;
+            statusColor = 'text-rose-400 border-rose-500/30 bg-rose-950/20';
+          } else if (isCommitted) {
+            statusText = 'Ready (Pending)';
+            statusColor = 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20';
+          }
+        } else {
+          if (isCommitted) {
+            statusText = 'Locked In';
+            statusColor = 'text-brand border-brand/40 bg-emerald-950/20';
+          }
+        }
+
+        const isMe = m.user_id === currentUser.id;
+        rosterDiv.innerHTML += `
+          <div class="p-2.5 rounded-xl border ${statusColor} flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full ${isCommitted || isAttended ? 'bg-brand' : 'bg-slate-700'}"></div>
+              <span class="text-xs font-semibold ${isMe ? 'text-white' : 'text-slate-300'} font-mono">${m.display_name} ${isMe ? '(You)' : ''}</span>
+            </div>
+            <span class="text-[10px] font-mono font-bold">${statusText}</span>
+          </div>
+        `;
+      });
+
+      // Render Leaderboard
+      const lbDiv = document.getElementById('leaderboard-list');
+      lbDiv.innerHTML = '';
+      const sorted = [...members].sort((a, b) => 
+        leaderboardView === 'weekly' ? b.weekly_xp - a.weekly_xp : b.total_xp - a.total_xp
+      );
+
+      sorted.forEach((m, idx) => {
+        const xp = leaderboardView === 'weekly' ? m.weekly_xp : m.total_xp;
+        const rankColor = idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-600' : 'text-slate-600';
+        lbDiv.innerHTML += `
+          <div class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-panel/40">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs font-bold ${rankColor} w-4">${idx + 1}</span>
+              <span class="text-xs font-medium text-slate-200">${m.display_name}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-[10px] font-mono text-slate-500">${m.total_sessions_crushed} sessions</span>
+              <span class="font-mono text-xs font-bold text-brand tabular">${xp} XP</span>
+            </div>
+          </div>
+        `;
+      });
+
+      // Render Bottom Thumb Dock Action
+      renderDockAction();
+    }
+
+    function renderDockAction() {
+      const dock = document.getElementById('dock-actions');
+      const isToday = selectedDate === getTodayISO();
+      const isFuture = selectedDate > getTodayISO();
+      const myLog = logs.find(l => l.user_id === currentUser.id && l.target_date === selectedDate);
+
+      if (isToday) {
+        if (myLog?.attended !== null && myLog?.attended !== undefined) {
+          dock.innerHTML = `
+            <div class="w-full py-3 bg-panel border border-border text-center rounded-xl font-mono text-xs text-slate-400">
+              Today's Session Recorded: <span class="text-brand font-bold">${myLog.xp_awarded > 0 ? '+' : ''}${myLog.xp_awarded} XP</span>
+            </div>
+          `;
+        } else {
+          dock.innerHTML = `
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="handleAttendance(true)" class="w-full py-3.5 bg-brand hover:bg-emerald-400 text-bg font-bold rounded-xl text-xs font-mono transition-all active:scale-95 shadow-lg shadow-brand/10">
+                CRUSHED IT (+20)
+              </button>
+              <button onclick="handleAttendance(false)" class="w-full py-3.5 bg-panel hover:bg-slate-800 text-slate-300 border border-border font-bold rounded-xl text-xs font-mono transition-all active:scale-95">
+                REST DAY (0)
+              </button>
+            </div>
+          `;
+        }
+      } else if (isFuture) {
+        const isCommitted = myLog?.committed === true;
+        dock.innerHTML = `
+          <button onclick="handleToggleRsvp('${selectedDate}', ${!isCommitted})" class="w-full py-3.5 rounded-xl text-xs font-mono font-bold transition-all active:scale-95 border ${
+            isCommitted 
+              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20' 
+              : 'bg-brand text-bg hover:bg-emerald-400'
+          }">
+            ${isCommitted ? 'CANCEL COMMITMENT (OPT OUT)' : 'LOCK IN FOR THIS DAY (+20 XP TARGET)'}
+          </button>
+        `;
+      } else {
+        dock.innerHTML = `
+          <div class="w-full py-2.5 text-center font-mono text-[11px] text-slate-600">
+            Historical day (Read-only)
+          </div>
+        `;
+      }
+    }
+
+    // ================= ACTIONS =================
+    async function handleToggleRsvp(targetDate, state) {
+      const { data, error } = await supabase.rpc('rpc_toggle_rsvp', {
+        p_target_date: targetDate,
+        p_committed: state
+      });
+
+      if (error || !data.success) {
+        showToast(data?.error || error?.message, true);
+      } else {
+        showToast(state ? 'Locked in for the squad!' : 'Opted out safely.');
+        await fetchAllData();
+        renderApp();
+      }
+    }
+
+    async function handleAttendance(didAttend) {
+      const { data, error } = await supabase.rpc('rpc_submit_attendance', {
+        p_did_attend: didAttend
+      });
+
+      if (error || !data.success) {
+        showToast(data?.error || error?.message, true);
+      } else {
+        showToast(`Score updated: ${data.xp_awarded > 0 ? '+' : ''}${data.xp_awarded} XP`);
+        await fetchAllData();
+        renderApp();
+      }
+    }
+
+    // Leaderboard Tabs
+    document.getElementById('tab-weekly').onclick = () => {
+      leaderboardView = 'weekly';
+      document.getElementById('tab-weekly').className = 'text-brand font-bold';
+      document.getElementById('tab-alltime').className = 'text-slate-500 hover:text-slate-300';
+      renderApp();
+    };
+    document.getElementById('tab-alltime').onclick = () => {
+      leaderboardView = 'alltime';
+      document.getElementById('tab-alltime').className = 'text-brand font-bold';
+      document.getElementById('tab-weekly').className = 'text-slate-500 hover:text-slate-300';
+      renderApp();
+    };
+
+    checkSession();
+  </script>
+</body>
+</html>
